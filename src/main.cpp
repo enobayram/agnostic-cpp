@@ -1,6 +1,7 @@
 #include <utility>
 #include <tuple>
 #include <iostream>
+#include <iomanip>
 
 using namespace std;
 
@@ -9,7 +10,7 @@ void print(int i, ostream & os) {
 }
 
 void print(string s, ostream & os) {
-	os << s;
+	os << quoted(s);
 }
 
 template <class ... Elems> void print(tuple<Elems...> t, ostream & os);
