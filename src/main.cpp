@@ -4,6 +4,15 @@
 #include <iomanip>
 #include <sstream>
 #include <vector>
+#include <memory>
+
+using erase_ptr = std::unique_ptr<void, void(*)(void *)>;
+template <class T> void erased_deleter(void * t) {delete (T*)t;}
+
+template <class T, class ...ARGS>
+erase_ptr make_erased_ptr(ARGS && ... args) {
+    return erase_ptr(new T(std::forward<ARGS>(args)...), erased_deleter<T>);
+}
 
 using namespace std;
 
@@ -13,6 +22,11 @@ struct RTProxy {
 	string name;
 	vector<RTProxy> args;
 	bool operator==(const RTProxy & other ) const {return name == other.name && args == other.args;}
+};
+
+struct RTValue {
+	RTProxy type;
+	erase_ptr value;
 };
 
 template<class T> struct Proxy;
