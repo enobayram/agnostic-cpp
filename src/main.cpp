@@ -2,6 +2,7 @@
 #include <tuple>
 #include <iostream>
 #include <iomanip>
+#include <sstream>
 
 using namespace std;
 
@@ -31,6 +32,62 @@ void print(tuple<Elems...> t, ostream & os) {
 	os << "]";
 }
 
+template<class T> struct Proxy{};
+template<class T> Proxy<T> proxy;
+
+int parse(Proxy<int>, istream & is) {
+	int result;
+	is >> result;
+	return result;
+}
+
+string parse(Proxy<string>, istream & is) {
+	string result;
+	is >> quoted(result);
+	return result;
+}
+
+bool skip(char s, istream & is) {
+	char c;
+	while(is.get(c)) {
+		if(isspace(c))   continue;
+		else if (c == s) return true;
+		else             return false;
+	}
+	return false;
+}
+
+template <class ... Elems>
+tuple<Elems...> parse(Proxy<tuple<Elems...>> p, istream & is);
+
+tuple<> parse_impl(Proxy<tuple<>>, istream & is){return {};}
+
+template <class Elem, class ... Elems>
+tuple<Elem, Elems...> parse_impl(Proxy<tuple<Elem, Elems...>>, istream & is) {
+	tuple<Elem, Elems...> result {
+		parse(proxy<Elem>, is),
+		(skip(',', is), is.good() ? parse(proxy<Elems>, is) : Elems{})...
+	};
+
+	return result;
+}
+
+template <class ... Elems>
+tuple<Elems...> parse(Proxy<tuple<Elems...>> p, istream & is) {
+	tuple<Elems...> result;
+	if(!skip('[', is)) {
+		is.setstate(is.failbit);
+		return result;
+	}
+	result = parse_impl(p, is);
+	if(skip(']', is)) {
+		is.setstate(is.failbit);
+		return result;
+	}
+}
+
 int main() {
 	print(make_tuple(1, "abc"s, make_tuple(1, "2"s , 3)), cout);
+	istringstream sin{R"([1, "abc", 2])"};
+	print(parse(proxy<tuple<int, string, int>>, sin), cout);
 }
