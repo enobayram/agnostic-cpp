@@ -3,8 +3,51 @@
 #include <iostream>
 #include <iomanip>
 #include <sstream>
+#include <vector>
 
 using namespace std;
+
+template<class ... ARGS> struct type_list{};
+
+struct RTProxy {
+	string name;
+	vector<RTProxy> args;
+	bool operator==(const RTProxy & other ) const {return name == other.name && args == other.args;}
+};
+
+template<class T> struct Proxy;
+template<class T> Proxy<T> proxy;
+
+#define REGISTER_TYPE(type) \
+template<> \
+struct Proxy<type> { \
+	constexpr static const char * name = #type; \
+	using args = type_list<>; \
+};
+
+#define REGISTER_TYPECTR(type_ctr) \
+template<class ... ARGS> \
+struct Proxy<type_ctr<ARGS...>> { \
+	constexpr static const char * name = #type_ctr; \
+	using args = type_list<ARGS...>; \
+};
+
+template<class Proxy> RTProxy toRuntime(Proxy);
+
+template <class ... ARGS>
+vector<RTProxy> toRuntime(type_list<ARGS...>) {
+	return {toRuntime(proxy<ARGS>)...};
+}
+
+template<class Proxy>
+RTProxy toRuntime(Proxy) {
+	return {Proxy::name, toRuntime(typename Proxy::args{})};
+}
+
+
+REGISTER_TYPE(int)
+REGISTER_TYPE(string)
+REGISTER_TYPECTR(tuple)
 
 void print(int i, ostream & os) {
 	os << i;
@@ -31,9 +74,6 @@ void print(tuple<Elems...> t, ostream & os) {
 	print_tuple_impl(t, os, index_sequence_for<Elems...>{});
 	os << "]";
 }
-
-template<class T> struct Proxy{};
-template<class T> Proxy<T> proxy;
 
 int parse(Proxy<int>, istream & is) {
 	int result;
@@ -88,6 +128,9 @@ tuple<Elems...> parse(Proxy<tuple<Elems...>> p, istream & is) {
 
 int main() {
 	print(make_tuple(1, "abc"s, make_tuple(1, "2"s , 3)), cout);
+	cout << endl;
 	istringstream sin{R"([1, "abc", 2])"};
 	print(parse(proxy<tuple<int, string, int>>, sin), cout);
+	cout << endl;
+	cout << (RTProxy{"int"} == toRuntime(proxy<int>));
 }
