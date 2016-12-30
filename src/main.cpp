@@ -206,7 +206,10 @@ tuple<Elems...> parse(Proxy<tuple<Elems...>> p, istream & is) {
 }
 
 int main() {
-	print(make_tuple(1, "abc"s, make_tuple(1, "2"s , 3)), cout);
+	auto tup = make_tuple(1, "abc"s, make_tuple(1, "2"s , 3));
+	print(tup, cout);
+	cout << endl;
+	print(toRuntime(tup), cout);
 	cout << endl;
 	istringstream sin{R"([1, "abc", 2])"};
 	print(parse(proxy<tuple<int, string, int>>, sin), cout);
