@@ -47,22 +47,46 @@ struct Proxy<type_ctr<ARGS...>> { \
 	using args = type_list<ARGS...>; \
 };
 
-template<class Proxy> RTProxy toRuntime(Proxy);
+template<class T> RTProxy toRuntime(Proxy<T>);
 
 template <class ... ARGS>
 vector<RTProxy> toRuntime(type_list<ARGS...>) {
 	return {toRuntime(proxy<ARGS>)...};
 }
 
-template<class Proxy>
-RTProxy toRuntime(Proxy) {
-	return {Proxy::name, toRuntime(typename Proxy::args{})};
+template<class T>
+RTProxy toRuntime(Proxy<T>) {
+	return {Proxy<T>::name, toRuntime(typename Proxy<T>::args{})};
 }
 
 
 REGISTER_TYPE(int)
 REGISTER_TYPE(string)
 REGISTER_TYPECTR(tuple)
+
+struct runtime_tuple : vector<RTValue> {
+};
+
+RTValue toRuntime(runtime_tuple && rtup) {
+	RTProxy result_type {"tuple"};
+	for(auto & val: rtup) result_type.args.push_back(val.type);
+	return RTValue{result_type, make_erased_ptr<runtime_tuple>(move(rtup))};
+}
+
+template <class ... Elems>
+RTValue toRuntime(const tuple<Elems...> & tup);
+
+template <class Tuple, size_t ... Indices>
+RTValue tupToRuntimeImpl(const Tuple & tup, index_sequence<Indices...>) {
+	runtime_tuple result;
+	int phony[] = {(result.emplace_back(toRuntime(get<Indices>(tup))), 0)...};
+	return toRuntime(move(result));
+}
+
+template <class ... Elems>
+RTValue toRuntime(const tuple<Elems...> & tup) {
+	return tupToRuntimeImpl(tup, index_sequence_for<Elems...>{});
+}
 
 void print(int i, ostream & os) {
 	os << i;
