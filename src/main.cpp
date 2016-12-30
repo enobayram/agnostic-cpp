@@ -59,7 +59,9 @@ RTProxy toRuntime(Proxy<T>) {
 	return {Proxy<T>::name, toRuntime(typename Proxy<T>::args{})};
 }
 
+struct unit {};
 
+REGISTER_TYPE(unit)
 REGISTER_TYPE(int)
 REGISTER_TYPE(string)
 REGISTER_TYPECTR(tuple)
@@ -98,19 +100,26 @@ void print(string s, ostream & os) {
 
 template <class ... Elems> void print(tuple<Elems...> t, ostream & os);
 
-template <class Tuple>
-void print_tuple_impl(Tuple tuple, ostream & os, integer_sequence<size_t>){}
-
-template <class Tuple, size_t ... Indices>
-void print_tuple_impl(Tuple tuple, ostream & os, integer_sequence<size_t, 0, Indices...>) {
-	print(get<0>(tuple), os);
-	int phony[] = {(os << ",", print(get<Indices>(tuple), os), 0)...};
+template <class Visitor, class Tuple, size_t ... Indices>
+auto tuple_for_each_impl(const Tuple & t, Visitor v, index_sequence<Indices...>) {
+	return tuple<decltype(v(get<Indices>(t)))...>{v(get<Indices>(t))...};
 }
 
-template <class ... Elems>
-void print(tuple<Elems...> t, ostream & os) {
+template <class Visitor, class ... Elems>
+auto tuple_for_each(const tuple<Elems...> & t, Visitor v) {
+	return tuple_for_each_impl(t, v, index_sequence_for<Elems...>{});
+}
+
+template <class Tuple>
+void print(const Tuple & t, ostream & os) {
 	os << "[";
-	print_tuple_impl(t, os, index_sequence_for<Elems...>{});
+	bool first = true;
+	tuple_for_each(t, [&](auto && in) mutable {
+		if(!first) os << ", ";
+		first = false;
+		print(in, os);
+		return unit{};
+	});
 	os << "]";
 }
 
