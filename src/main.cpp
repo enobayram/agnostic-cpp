@@ -37,7 +37,8 @@ template<> \
 struct Proxy<type> { \
 	constexpr static const char * name = #type; \
 	using args = type_list<>; \
-};
+}; \
+RTValue toRuntime(const type & val) { return {toRuntime(proxy<type>), make_erased_ptr<type>(val)};}
 
 #define REGISTER_TYPECTR(type_ctr) \
 template<class ... ARGS> \
