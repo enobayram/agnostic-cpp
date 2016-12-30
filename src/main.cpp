@@ -4,6 +4,7 @@
 #include <iomanip>
 #include <sstream>
 #include <vector>
+#include <map>
 #include <memory>
 
 using erase_ptr = std::unique_ptr<void, void(*)(void *)>;
@@ -90,15 +91,31 @@ RTValue toRuntime(const tuple<Elems...> & tup) {
 	return tupToRuntimeImpl(tup, index_sequence_for<Elems...>{});
 }
 
+using print_func = void(*)(const RTValue &, ostream &);
+
+map<string, print_func> printers;
+
+void print(const RTValue & value, ostream & os) {
+	printers[value.type.name](value, os);
+}
+
 void print(int i, ostream & os) {
 	os << i;
 }
+
+bool phony1 = []{
+	printers["int"] = [](const RTValue & value, ostream & os) {print(* (int *) value.value.get(), os);};
+	return true;
+}();
 
 void print(string s, ostream & os) {
 	os << quoted(s);
 }
 
-template <class ... Elems> void print(tuple<Elems...> t, ostream & os);
+bool phony2 = []{
+	printers["string"] = [](const RTValue & value, ostream & os) {print(* (string *) value.value.get(), os);};
+	return true;
+}();
 
 template <class Visitor, class Tuple, size_t ... Indices>
 auto tuple_for_each_impl(const Tuple & t, Visitor v, index_sequence<Indices...>) {
@@ -108,6 +125,15 @@ auto tuple_for_each_impl(const Tuple & t, Visitor v, index_sequence<Indices...>)
 template <class Visitor, class ... Elems>
 auto tuple_for_each(const tuple<Elems...> & t, Visitor v) {
 	return tuple_for_each_impl(t, v, index_sequence_for<Elems...>{});
+}
+
+template<class Visitor>
+RTValue tuple_for_each(const runtime_tuple & rtup, Visitor v) {
+	runtime_tuple result;
+	for(auto && val: rtup) {
+		result.emplace_back(toRuntime(v(val)));
+	}
+	return toRuntime(move(result));
 }
 
 template <class Tuple>
@@ -122,6 +148,11 @@ void print(const Tuple & t, ostream & os) {
 	});
 	os << "]";
 }
+
+bool phony3 = []{
+		printers["tuple"] = [](const RTValue & value, ostream & os) {print(* (runtime_tuple *) value.value.get(), os);};
+	return true;
+}();
 
 int parse(Proxy<int>, istream & is) {
 	int result;
